@@ -1,0 +1,1011 @@
+---
+title: "Project_CrossSpecies_hematopoiesis"
+author: "Junjie Do"
+output: html_document
+---
+
+# Main packages
+```{r}
+
+library(Seurat)
+library(scCustomize)
+library(ggplot2)
+library(magrittr)
+
+```
+
+# Pre-processing
+```{r}
+
+
+
+```
+
+#Fig1 
+```{r}
+
+cca.major <- readRDS("./Rdata/merged_species.rds")
+cca.major$Location %>% table
+
+
+```
+
+## Human 
+```{r}
+
+human_hep <- readRDS("./Rdata/Human_dataset.rds")
+
+c("Emerging Mesoderm" = "#635547",
+  "Advanced Mesoderm" = "#0f4a9c",
+  "ExM" = "#8870ad",
+  "EC" = "#ff891c",
+  "HPC" = "#aec7e8",
+  "MkP" = "#17becf",
+  "MyP" = "#7200da",
+  "Mac" = "#2ca02c",
+  "Ery" = "#d62728"
+  ) -> hep_colors
+DimPlot_scCustom(human_hep,
+                 group.by = "Cluster",
+                 colors_use = hep_colors,
+                 aspect_ratio = 1.1,
+                 pt.size = .8) -> tmp_p
+
+ggsave(filename = "./Fig/Fig1_UMAP_human.pdf",
+       plot = tmp_p,
+       width = 5, height = 4)
+
+
+Idents(human_hep) <- human_hep$Cluster
+human_hep %>% FindAllMarkers(logfc.threshold = log2(2) ,
+                                       min.pct = 0.1, only.pos = T,
+                                       pseudocount.use = 0.1) -> deg.hhep
+
+deg.hhep$cluster %>% unfactor() %>% plyr::mapvalues(., 
+                                     c("Emergent Mesoderm", "Advanced Mesoderm", "ExM",
+             "Endothelium", "HPC", "MkP", "Ery",
+             "Myeloid progenitor", "Mac"),
+                                     c("Emergent Mesoderm", "Advanced Mesoderm", "ExM",
+             "EC", "HPC", "MkP", "Ery",
+             "MyP", "Mac")
+             ) -> tmp_cls
+deg.hhep$cluster  <- tmp_cls
+
+write.csv(x = deg.hhep,
+          file = "./Table/DEGs_Human.csv",
+          row.names = F, quote = F)
+
+
+Cls_ord <- c("Emerging Mesoderm", "Advanced Mesoderm", "ExM",
+             "EC", "HPC", "MkP", 
+             "MyP", "Mac" , "Ery")
+
+human_hep$Cluster <- factor(human_hep$Cluster,
+                             levels = Cls_ord)
+Idents(human_hep) <- human_hep$Cluster
+DotPlot_scCustom(human_hep,
+               features = c(
+                 "LEFTY2", "SAMD3", "MESP1", 
+                  "MSX2", "BMP4", "HAND1", 
+                 "POSTN", "IGFBP7", "DCN",  
+                 "CDH5", "OIT3", "STAB2", 
+                            "SPINK2", "MYB", "CD34", 
+                            "ITGA2B", "GP9",  "PF4",
+                            "MPO", "S100A9", "AZU1",
+                            "CD68", "C1QA", "C1QC",
+                 "HBM", "HBG1", "HBZ"),
+               colors_use = c("grey", "#c72228"),
+               x_lab_rotate = T
+               ) -> tmp_p
+
+
+ggsave(filename = "./Fig/Fig1_Dot_human.pdf",
+       plot = tmp_p,
+       width = 12.5, height = 3.5)
+
+
+```
+
+## Monkey(in vivo)
+```{r}
+
+maca_use <- readRDS("./Rdata/Monkey_dataset.rds")
+
+c("HAB", "EC", "HEC", 
+  "HPC1", "MkP", "Ery", 
+  "HPC2", "MyP", "Mac") -> cell_tmp
+
+c("#005579", "#ff891c", "#b51d8d",
+  "#532c8a", "#facb12", "#c72228",
+  "#ef5a9d", "#17becf", "#2ca02c") -> maca_colors
+names(maca_colors) <- cell_tmp
+
+
+
+DimPlot_scCustom(maca_use,
+                 group.by = "Cluster",
+                 aspect_ratio = 1.1,
+                 pt.size = .6,
+                 colors_use = maca_colors
+                 ) -> tmp_p
+
+ggsave(filename = "./Fig/Fig1_UMAP_macainvivo.pdf",
+       plot = tmp_p,
+       width = 5, height = 4)
+
+
+FeaturePlot_scCustom(maca_use, features = c("ETV2",  "PECAM1",  "TAL1",
+                                            "RUNX1", "KIT", "ITGA2B",
+                                            "GATA1", "SPN", "MYB", "SPI1",
+                                            "KLF1", "CD34"))
+
+Idents(maca_use) <- factor(maca_use$Cluster,
+                           levels = paste0("Mai_", c("HAB", "EC", "HEC", 
+                                      "HPC1", "MkP", "Ery", 
+                                      "HPC2",  "MyP", "Mac") ) )
+
+maca_use <- NormalizeData(maca_use, scale.factor = 1e4)
+maca_use %>% FindAllMarkers(logfc.threshold = log2(2) ,
+                                       min.pct = 0.1, only.pos = T,
+                                       pseudocount.use = 0.1) -> deg.maca
+
+
+deg.maca$cluster %>% unfactor() %>% plyr::mapvalues(., 
+                                     paste0("Mai_", c("HAB", "EC", "HEC", 
+                                      "HPC1", "MkP", "Ery", 
+                                      "HPC2", "MyP", "Mac") ),
+                                     c("HAB", "EC", "HEC", 
+                                      "HPC1", "MkP", "Ery", 
+                                      "HPC2", "MyP", "Mac")
+             ) -> tmp_cls
+deg.maca$cluster  <- tmp_cls
+
+write.csv(x = deg.maca,
+          file = "./Table/DEGs_Monkey.csv",
+          row.names = F, quote = F)
+
+
+
+scCustomize::Extract_Top_Markers(marker_dataframe = deg.maca,
+                            num_genes = 3, named_vector = FALSE,
+                            make_unique = TRUE) -> top3
+
+VlnPlot_scCustom(maca_use, 
+                 group.by = "Cluster5",
+                 features = c("ITGA2B", "SPN", "PTPRC",
+                              "KIT", "KDR", "PECAM1", "CDH5",
+                              "RUNX1", "HBB", "GYPA", "HBZ"))
+
+gene_shows <- c(
+  "ETV2", "TAL1", "KDR",
+  "CLDN5", "CDH5", "PECAM1",
+  "KCNK17", "RUNX1", "GFI1", 
+  "ITGA2B", "GATA1", "CMTM5",
+  "PPBP", "PF4", "GP9",
+  "KLF1", "GYPA", "HBZ",
+  "SPINK2", "CD34", "SPI1",
+  "MPO", "LSP1", "CSF1R",
+  "C1QC", "C1QB", "IFI30")
+
+maca_use$Cluster %>% table
+maca_use$Cluster <- factor(maca_use$Cluster,
+                               levels = paste0("Mai_", cell_tmp)) 
+Idents(maca_use) <- maca_use$Cluster
+
+DotPlot_scCustom(maca_use,
+               features = gene_shows,
+               colors_use = c("grey", "#b51d8d"),
+               scale = T,
+               x_lab_rotate = T
+               ) -> tmp_p
+
+ggsave(filename = "./Fig/Fig1_Dot_maca.pdf",
+       plot = tmp_p,
+       width = 11, height = 3.5)
+
+```
+
+## integrative atlas
+```{r}
+
+DimPlot(cca.major,
+                 group.by = "Cluster5",
+                 cols = Cls5_ref_colors,
+                 pt.size = .6,
+                 label = F) + coord_fixed(1.1) -> tmp_p1
+
+ggsave(filename = "./Fig/Fig1_UMAP_CCA_refine.pdf",
+       plot = tmp_p1,
+       width = 13, height = 13)
+
+DimPlot(cca.major,
+                 group.by = "Cluster5",
+                 cols = Cls5_ref_colors,
+                 pt.size = .7,
+                split.by = "species",
+        ncol = 2,
+                 label = F) -> tmp_p2
+
+
+ggsave(filename = "./Fig/Fig1_UMAP_CCA_refine_split.pdf",
+       plot = tmp_p2,
+       width = 14, height = 7)
+
+
+
+
+setNames(c("#5E4FA2", "#3288BD", "#65a83e",
+"#139992",  "#f79083", "#ff7f0e","#facb12", "#9E0142"),
+c("E6.75",  "E7.0",  "E7.25", "E7.5",
+  "E7.75", "E8.0","E8.25",
+  "E8.5" ) ) -> Color_sta1
+
+c("CS7" = "#139992" , "CS8" = "#3288BD" , "CS9" = "#D53E4F") -> Color_sta2
+
+c("ME18-19" = "#3288BD" , "ME20-22" = "#facb12" , "ME23-25" = "#D53E4F") -> Color_sta3
+
+DimPlot(cca.major,
+                 group.by = "Stage",
+                 cols = c(Color_sta1, Color_sta2, Color_sta3),
+                 pt.size = .7,
+                split.by = "species",
+        ncol = 2,
+                 label = F) -> tmp_p3
+
+
+ggsave(filename = "./Fig/Fig1_UMAP_CCA_stage_split.pdf",
+       plot = tmp_p3,
+       width = 8, height = 7)
+
+
+### 
+
+FeaturePlot_scCustom(cca.major,
+                     features = c("POU5F1", "KDR", "POSTN",
+                                  "CD34", "SPI1", 
+                                   "C1QC",  "GATA1", "GP9", "HBZ"),
+                     aspect_ratio = 1.1,
+                     pt.size = .6,
+                     colors_use = light_colors2) -> tmp_p
+
+ggsave(filename = "./Fig/Fig1_Features.pdf",
+       plot = tmp_p,
+       width = 10, height = 10)
+
+
+```
+
+#Fig2 
+```{r}
+```
+
+## Correlation (A-B)
+```{r}
+cca.major$Cluster_Spe <- paste0(cca.major$Species, "_", cca.major$Cluster)
+
+Embeddings(cca.major, reduction = "pca")[,paste0("PC_", 1:25)] -> emb_use
+hm_avg <- t(apply(emb_use, 2, function(x){
+  tapply(x, INDEX = list(cluster = cca.major$Cluster_Spe), mean)
+}))
+
+out.dist=dist(hm_avg %>% t,method="euclidean")
+out.hclust=hclust(out.dist,method="ward.D2") 
+plot(out.hclust)
+
+
+par(mar = c(12,4,1,1))
+
+plot(out.hclust)
+cutree(out.hclust, 9) -> Cls9
+mypal <- c("#556270", "#4ECDC4", "#FF6B6B", "#1B676B",  "#f397c0",
+           "#532c8a", "#65a83e", "#9e6762", "#3f84aa")
+
+
+plot(ape::as.phylo(out.hclust), type = "fan",
+     tip.color = mypal[Cls9], label.offset = 1,
+     cex = 2,
+     col = "red")
+
+pheatmap::pheatmap(cor(hm_avg,method = "pearson"), 
+                   display_numbers = F, 
+                   cluster_cols = out.hclust, cluster_rows = out.hclust,
+                   border_color = NA)
+```
+
+## Scoring (C)
+```{r}
+
+
+
+emp <- cca.major[,cca.major$Cluster5 %in% c("Mus_BP", "Mus_EMP")]
+DefaultAssay(emp) <- "RNA" 
+Idents(emp) <- emp$Cluster5
+emp %>% FindAllMarkers(logfc.threshold = log2(2) ,
+                                       min.pct = 0.1, only.pos = T,
+                                       pseudocount.use = 0.1) -> deg.wave
+
+deg.wave %>% View
+gs_wave <- list()
+gs_wave[["BP_wave"]] <- deg.wave[deg.wave$cluster == "Mus_BP", "gene"][1:60]
+gs_wave[["EMP_wave"]] <- deg.wave[deg.wave$cluster == "Mus_EMP", "gene"][1:60]
+
+DefaultAssay(cca.major) <- "RNA"
+cca.major <- AddModuleScore(cca.major,
+                            features = list(gs_wave[[1]]),
+                            name = "BP")
+cca.major <- AddModuleScore(cca.major,
+                            features = list(gs_wave[[2]]),
+                            name = "EMP")
+
+pl_geneScore <- function(
+    data_input = NULL,
+    group_by = NULL,
+    score_names = NULL,
+    score_order = NULL,
+    compare_by = NULL,
+    color_use = NULL,
+    split_by = NULL,
+    title_use = NULL,
+    n.row = 1,
+    plot_type = "simple"){
+  tmp <- data_input@meta.data[,c(group_by, split_by, score_names)] 
+  tmp_long <- tmp %>% 
+    pivot_longer(cols = score_names, 
+                 names_to = "score_name", values_to = "score")
+  tmp_long$score_name <- factor(tmp_long$score_name,
+                                levels = score_order)
+  dodge <- position_dodge(width = 0.9)
+  
+  if(plot_type == "simple"){
+    ggplot(data= tmp_long, aes_string(x = group_by, y = "score")) +
+      geom_violin(aes_string(fill = group_by), scale = "width", color = NA, alpha = 1, show.legend = F) +
+      geom_boxplot(width = 0.2, color = "black",
+                   alpha = 1, outlier.shape = NA,
+                   position = position_dodge(width = 0.9)
+                   ) +
+      ggpubr::stat_compare_means(comparisons = compare_by,
+                                 size = 5,
+                                   color = "black",label="p.format")  + 
+      scale_fill_manual(values= color_use) + 
+      ylab("Geneset scores" ) +
+    theme_classic() + 
+    theme(axis.text.x = element_text(angle = 45,
+                                     vjust = 0.5, hjust=0.5)) +
+      ggtitle(title_use) +
+    facet_wrap(~score_name,
+               nrow = n.row, 
+               scales = "free") -> tmp_p
+    return(tmp_p)
+  }else{
+    ggplot(data= tmp_long, aes_string(x = group_by, y = "score", fill = split_by)) +
+      geom_violin( 
+                   scale = "width", color = NA, alpha = 1, show.legend = F) +
+      geom_boxplot(width = 0.2, color = "black", alpha = 1,
+                   position = position_dodge(width = 0.9),
+                   outlier.shape = NA) +
+      ggpubr::stat_compare_means(
+        comparisons = compare_by,
+                                 size = 5,
+                                   color = "black",label="p.format")  + 
+      scale_fill_manual(values= color_use) + 
+      ylab("Geneset scores") +
+    theme_classic() + 
+    theme(axis.text.x = element_text(angle = 45,
+                                     vjust = 0.5, hjust=0.5)) +
+      ggtitle(title_use) +
+    facet_wrap(~score_name,
+               nrow = n.row,
+               scales = "free") -> tmp_p
+    return(tmp_p)
+  }
+}
+
+
+pl_geneScore(data_input = cca.major[,cca.major$Cluster_Spe %in% c("Human_HPC", "Human_MyP",
+                                                      "Maca invivo_HPC1", "Maca invivo_HPC2",
+                                                      "Maca invitro_HPC1", "Maca invitro_HPC2")],
+             group_by = "Cluster_Spe",
+             score_names = c("BP1", "EMP1"),
+             score_order = c("BP1", "EMP1"),
+             compare_by = list(c("Human_HPC", "Human_MyP",),
+                               c("Maca invivo_HPC1", "Maca invivo_HPC2",),
+                               c("Maca invitro_HPC1", "Maca invitro_HPC2")),
+             n.row = 1 ) 
+
+
+```
+
+## Trajectory (D-E)
+```{r}
+
+library(monocle3)
+
+mondata <- cca.major
+data <- GetAssayData(mondata, assay = 'RNA', slot = 'counts')
+cell_metadata <- mondata@meta.data
+gene_annotation <- data.frame(gene_short_name = rownames(data))
+rownames(gene_annotation) <- rownames(data)
+cds <- new_cell_data_set(data,
+                         cell_metadata = cell_metadata,
+                         gene_metadata = gene_annotation)
+
+
+DefaultAssay(cca.major) <- "integrated"
+cds <- preprocess_cds(cds, num_dim = 30,
+                      use_genes = VariableFeatures(cca.major))
+
+cds <- reduce_dimension(cds, preprocess_method = "PCA")
+
+plot_cells(cds, reduction_method="UMAP", color_cells_by="species") + ggtitle('cds.umap')
+
+cds.embed <- cds@int_colData$reducedDims$UMAP
+int.embed <- Embeddings(mondata, reduction = "umap")
+int.embed <- int.embed[rownames(cds.embed),]
+cds@int_colData$reducedDims$UMAP <- int.embed
+plot_cells(cds, reduction_method="UMAP",
+           color_cells_by="species") + ggtitle('int.umap')
+
+
+
+cds <- cluster_cells(cds, reduction_method = "UMAP", 
+                     num_iter = 2, weight = T,
+                     cluster_method = 'louvain', k= 325)
+
+cds <- learn_graph(cds)
+
+plot_cells(cds, color_cells_by = "Cluster5", label_leaves = FALSE, 
+               label_branch_points = FALSE,
+           trajectory_graph_segment_size = 1.5,
+           trajectory_graph_color = "black",
+           cell_size = 1) + 
+  scale_color_manual(values = Cls5_ref_colors)
+
+```
+
+## ridge plot (E)
+```{r}
+
+library(ggridges)
+library(tidyverse)
+library(gridExtra)
+
+```
+
+
+### myeloid 
+```{r}
+
+cds_sub2 <- choose_graph_segments(cds, clear_cds = F)
+cds_sub2 <- order_cells(cds_sub2)
+
+
+colData(cds_sub2)$Stage %>% plyr::mapvalues(.,
+                                            colData(cds_sub2)$Stage %>% unique,
+                                            c(rep_len("pre", 8), 
+                                               "post" ,  "post")) -> tmp_stage
+
+my_data <- data.frame(
+  species = colData(cds_sub2)$species,
+  circulation = tmp_stage,
+  pseudorder = pseudotime(cds_sub2)
+  
+  )
+
+library(viridis)
+
+
+
+ggplot(my_data, aes(x= pseudorder , y= factor(species,
+                                              levels = c("Human", 
+                                                         "Maca invivo",
+                                                         "Maca invitro",
+                                                         "Mouse") ),
+                    fill=circulation))+
+  geom_density_ridges_gradient(scale=9, rel_min_height=0.01,
+                               alpha = .6, color = "black",
+                               gradient_lwd = 1.)+
+  scale_x_continuous(expand = c(0.01, 0))+ # 扩展下横轴和纵轴
+  scale_y_discrete(expand = c(0.01,0))+
+  scale_fill_manual(values =  c("#ef4e22", "red"))+
+  labs(title="Trajectory",
+       subtitle="Myeloid")+
+  theme_ridges(font_size = 13, grid = FALSE,
+               center = TRUE)+
+  theme(axis.title.y = element_blank()) -> tmp_mye
+
+
+```
+
+### mk 
+```{r}
+
+cds_sub3 <- choose_graph_segments(cds, clear_cds = F)
+cds_sub3 <- order_cells(cds_sub3)
+
+
+colData(cds_sub3)$Stage %>% plyr::mapvalues(.,
+                                            colData(cds_sub3)$Stage %>% unique,
+                                            c(rep_len("pre", 8), 
+                                               "post" ,"post")) -> tmp_stage
+
+my_data <- data.frame(
+  species = colData(cds_sub3)$species,
+  circulation = tmp_stage,
+  pseudorder = pseudotime(cds_sub3)
+  
+  )
+
+library(viridis)
+
+
+
+ggplot(my_data, aes(x= pseudorder , y= factor(species,
+                                              levels = c("Human", 
+                                                         "Maca invivo",
+                                                         "Maca invitro",
+                                                         "Mouse") ),
+                    fill=circulation))+
+  geom_density_ridges_gradient(scale=9, rel_min_height=0.01,
+                               alpha = .6, color = "black",
+                               gradient_lwd = 1.)+
+  scale_x_continuous(expand = c(0.01, 0))+ # 扩展下横轴和纵轴
+  scale_y_discrete(expand = c(0.01,0))+
+  scale_fill_manual(values =  c("#ef4e22", "red"))+
+  labs(title="Trajectory",
+       subtitle="MK")+
+  theme_ridges(font_size = 13, grid = FALSE,
+               center = TRUE)+
+  theme(axis.title.y = element_blank()) -> tmp_mk
+
+
+
+```
+
+### ery
+```{r}
+cds_sub1 <- choose_graph_segments(cds, clear_cds = F)
+cds_sub1 <- order_cells(cds_sub1)
+
+colData(cds_sub1)$Stage %>% unique
+
+cds_sub1 <- cds_sub1[colData(cds_sub1)$species != "Maca invitro"]
+colData(cds_sub1)$Stage %>% plyr::mapvalues(.,
+                                            colData(cds_sub1)$Stage %>% unique,
+                                            c(rep_len("pre", 9), 
+                                              "post", "post" )) -> tmp_stage
+
+my_data <- data.frame(
+  species = colData(cds_sub1)$species,
+  circulation = tmp_stage,
+  pseudorder = pseudotime(cds_sub1)
+  )
+
+
+
+library(viridis)
+
+
+ggplot(my_data, aes(x= pseudorder , y= factor(species,
+                                              levels = c("Human", 
+                                                         "Maca invivo",
+                                                         "Maca invitro",
+                                                         "Mouse") )))+
+  geom_density_ridges_gradient(aes(fill = circulation),
+                               scale=9, rel_min_height=0.01,
+                               alpha= .2,
+                                size = 0.3,
+                               color = "black",
+                               gradient_lwd = 1.)+
+  scale_x_continuous(expand = c(0.01, 0))+ 
+  scale_y_discrete(expand = c(0.01,0))+
+  scale_fill_manual(values =  c("#ef4e22", "red"))+
+  labs(title="Trajectory",
+       subtitle="Ery")+
+  theme_ridges(font_size = 13,
+               grid = FALSE)+
+  theme(axis.title.y = element_blank()) -> tmp_ery
+
+cowplot::plot_grid(tmp_ery, tmp_mk, tmp_mye,
+                    ncol = 3)
+```
+
+## DEGs
+```{r}
+
+
+emp <- cca.major[,cca.major$Cluster5 %in% c("Hs_HPC", 
+                                            "Mai_HPC2", 
+                                            "Mus_EMP")]
+
+emp$species2 <- "Primates"
+emp@meta.data[emp$species == "Mouse", "species2"] <- "Mouse"
+Idents(emp) <- emp$species2
+
+
+deg.list <- list()
+for (x in list(c("Hs_HPC", "Mai_HPC2"),
+               c("Hs_HPC", "Mus_EMP"),
+               c("Mai_HPC2", "Mus_EMP"))) {
+  emp[,emp$Cluster5 %in% x] %>% FindAllMarkers(logfc.threshold = log2(2) ,
+                                       min.pct = 0.2, only.pos = T,
+                                       pseudocount.use = 0.1) -> deg.list[[paste0(x[1], "_v_", x[2])]]
+
+}
+
+
+emp %>% FindAllMarkers(logfc.threshold = log2(2) ,
+                                       min.pct = 0.2, only.pos = T,
+                                       pseudocount.use = 0.1) -> deg.tmp
+
+
+DotPlot_scCustom(emp[,emp$Cluster5 %in% c("Hs_HPC", "Mai_HPC2", "Mus_EMP")],
+                 features = intersect(mye_features,
+          rownames(mon3_use.z)),
+          x_lab_rotate = T)
+
+
+c("MPO", "RPS12", "CLEC11A", "RPS23", "RPS6",  "S100A4", "CST3", "CS100A8", "S100A9","NCF1", "S100A6", "ICAM3","CSTB", "NPC2", "LIPA", "PSAP",
+  "CD52", "SMIM24", "TYMP", "PTGS2", "MSL1",
+  "FLI1", "MEF2C", "SPI1", "CEBPA", "IRF8") -> mye_features
+
+Clustered_DotPlot(emp[,emp$Cluster %in% c("HPC", "HPC2", "EMP")],
+                  group.by = "Cluster",
+                  features = intersect(mye_features,
+          rownames(emp)),
+          k = 2,
+          flip = T) -> tmp_p
+
+ggsave(filename = "./Fig/Fig2_ClsDot.pdf",
+       plot = tmp_p[[2]],
+       width = 7, height = 2.5)
+
+```
+
+
+
+
+#Fig3
+```{r}
+
+```
+
+## Macrophage features (A)
+```{r}
+
+FeaturePlot(cca.major[,cca.major$Species == "Human"],
+            features = c( "SPP1", "C1QC"), blend = TRUE,
+            cols = c("lightgrey", "blue", "red")) -> tmp_p1
+
+FeaturePlot(cca.major[,cca.major$Species == "Mouse"],
+            features = c("SPP1", "C1QC"), blend = TRUE,
+            cols = c( "lightgrey","blue",  "red")) -> tmp_p2
+
+FeaturePlot(cca.major[,cca.major$Species == "Maca invivo"],
+            features = c("SPP1", "C1QC"), blend = TRUE,
+            cols = c("lightgrey", "blue", "red")) -> tmp_p3
+
+FeaturePlot(cca.major[,cca.major$Species == "Maca invitro"],
+            features = c("SPP1", "C1QC"), blend = TRUE,
+            cols = c( "lightgrey","blue",  "red")) -> tmp_p4
+
+cowplot::plot_grid(tmp_p1, tmp_p2, 
+                   tmp_p3, tmp_p4, 
+                   ncol = 2) -> tmp_p
+ggsave(filename = "./Fig/Fig3_SPP1_FP.pdf",
+       plot = tmp_p,
+       width = 18, height = 5)
+       
+       
+```
+
+## Cell-cell cross talk (B-I)
+```{r}
+library(CellChat)
+
+
+human_hep <- cca.major[,cca.major$Species == "Human"]
+table(human_hep$Cluster,
+      human_hep$Location)
+ysdata <- human_hep[,human_hep$Cluster6 %in% c("EC", "Ery", "ExM",
+                                               "HPC", "Mac", "MyP", "MkP")]
+
+
+ys.identity = data.frame(group =ysdata$Cluster,
+                      row.names = names(ysdata$Cluster)) # create a dataframe consisting of the cell labels
+
+cellchat@meta$ident <- cellchat@meta$ident %>% unfactor()
+cellchat <- createCellChat(ysdata)
+cellchat <- setIdent(cellchat, ident.use = "Cluster",
+                     levels = c("ExM", "EC",  "HPC", "MkP", "MyP",
+                                "Mac", "Ery")) # set "labels" as default cell identity
+CellChatDB <- CellChatDB.human 
+cellchat@DB <- CellChatDB.human
+
+cellchat <- subsetData(cellchat) 
+cellchat <- identifyOverExpressedGenes(cellchat)
+cellchat <- identifyOverExpressedInteractions(cellchat)
+cellchat <- projectData(cellchat, PPI.human)  
+
+cellchat <- computeCommunProb(cellchat, k.min = 5)  
+cellchat <- filterCommunication(cellchat, min.cells = 3)
+df.net <- subsetCommunication(cellchat)
+
+
+cellchat <- aggregateNet(cellchat)
+groupSize <- as.numeric(table(cellchat@idents))
+par(mfrow = c(1,2), xpd=TRUE)
+
+cellchat_colors <- c(
+                     "ExM" = "#17becf",
+                     "EC" = "#EF5A9D",
+                     "MyP" = "#65a83e",
+                     "HPC" = "#3F84AA",
+                     "MkP" = "#4C4C4C",
+                     "Mac" = "#139992",
+                     "Ery" = "red")
+
+netVisual_circle(cellchat@net$count, vertex.weight = groupSize, weight.scale = T, label.edge= F, title.name = "Number of interactions")
+
+cellchat@idents <- factor(cellchat@idents,
+                          names(cellchat_colors)) 
+
+
+
+netVisual_circle(cellchat@net$weight[names(cellchat_colors),
+                                     names(cellchat_colors)], 
+                 sources.use = 1:7,
+                 targets.use = 6,
+                 vertex.weight = groupSize, 
+                 weight.scale = T, label.edge= F,
+                        arrow.width = 0.5,
+     arrow.size = 0.2, 
+                 title.name = "Interaction weights/strength",
+                 color.use = cellchat_colors) -> tmp_p1
+
+netVisual_circle(cellchat@net$weight[names(cellchat_colors),
+                                     names(cellchat_colors)], 
+                 sources.use = 6,
+                 targets.use = 1:7,
+                 vertex.weight = groupSize, 
+                 weight.scale = T, label.edge= F,
+                        arrow.width = 0.5,
+     arrow.size = 0.2, 
+                 title.name = "Interaction weights/strength",
+                 color.use = cellchat_colors) -> tmp_p2
+
+cowplot::plot_grid(tmp_p1, tmp_p2, 
+                   ncol = 2)
+
+### Pattern
+library(NMF)
+library(ggalluvial)
+
+
+selectK(cellchat, pattern = "incoming")
+selectK(cellchat, pattern = "outgoing")
+
+nPatterns = 3
+cellchat <- identifyCommunicationPatterns(cellchat, pattern = "incoming", k = nPatterns)
+netAnalysis_rivehhr(cellchat, pattern = "incoming")
+
+netVisual_heatmap(cellchat)
+
+cellchat <- identifyCommunicationPatterns(cellchat, pattern = "outgoing", k = nPatterns)
+
+
+### panel C
+
+c("MK", "CD99", "PTN", "ANGPTL", "VEGF", "FN1", "LAMININ", "EPHA", "MPZ", 
+  "DESMOSOME", "VTN", "ncWNT", "APP", "BMP", "CSF", "GDF", "NOTCH", "IGF",
+  
+  "JAM", "PECAM1", "ESAM", "THBS", "CD34", "ANGPT", "CD226", "NECTIN", "CDH5", "EDN", "ADGRE5", "PROS",
+  "IL16", "TGFb", "THY1", "AGT", "COMPLEMENT", "GALECTIN", "FGF", "EPHB", "PDGF", "OCLN",
+  
+  "SPP1", "ITGB2", "RESISTIN", "CD45", "CCL", "ICAM", "TRAIL", "CD48", "GAS") -> pw_order
+
+
+setdiff(pw_order, rownames(cellchat@LR$LRsig))
+
+netAnalysis_dot(cellchat, 
+                pattern = "outgoing",
+                group.show = c("ExM", "EC",  "HPC", "MkP", "MyP",
+                                "Mac", "Ery"),
+                pathway.show = pw_order,
+                color.use = cellchat_colors) -> tmp_p
+
+
+ggsave(filename = "./Fig/Fig3_Dot_pattern.pdf",
+       plot = tmp_p,
+       width = 12, height = 2.5)
+
+
+### panel D
+netAnalysis_signalingRole_network(cellchat,
+                                  signaling = c("CSF"), width = 8,
+                                  height = 2.5, font.size = 10,
+                                  cluster.rows = F, cluster.cols = F,
+                                  color.use = cellchat_colors)
+
+netAnalysis_signalingRole_network(cellchat,
+                                  signaling = c("CCL"), width = 8,
+                                  height = 2.5, font.size = 10,
+                                  cluster.rows = F, cluster.cols = T,
+                                  color.use = cellchat_colors)
+
+
+
+```
+
+## ExM subset (E-G)
+```{r}
+exm <- human_hep[,human_hep$Cluster6 == "ExM"]
+exm <- FindNeighbors(exm, reduction = "pca")
+exm <- FindClusters(exm, resolution = 0.3)
+
+
+
+exm %>% FindAllMarkers(logfc.threshold = log2(2) ,
+                                       min.pct = 0.1, only.pos = T,
+                                       pseudocount.use = 0.1) -> deg.exm
+
+
+human_hep$Cls_ExM <- "others"
+human_hep@meta.data[colnames(exm), "Cls_ExM"] <- plyr::mapvalues(exm@meta.data$seurat_clusters %>% unfactor(),
+                                                                 c("0", "1"), c("CD24+ExM", "CSF1+ExM")) 
+
+DimPlot_scCustom(human_hep,
+                 group.by = "Cls_ExM",
+                 colors_use = c("#139992", "#ff891c", "grey70" ),
+                 pt.size = 1, 
+                 aspect_ratio = 1.1) -> tmp_p
+ggsave(
+  filename = "./Fig/Fig3_ExM_subCls1.pdf",
+  plot = tmp_p,
+  width = 5, height = 5
+)
+
+
+DimPlot_scCustom(exm, group.by = "seurat_clusters",
+                 pt.size = 1.5,
+                 aspect_ratio = 1.1)
+
+VlnPlot_scCustom(exm,
+                 features = c("HAND1", "POSTN",
+                              "CD24", "MYL4", "ANXA8", "ACTC1",
+                              "CSF1", "CXCL14", "IGFBP3", "FN1"))
+
+pl_expression(data_input = exm,
+             group_by = "seurat_clusters",
+             gene_names = c("HAND1", "POSTN",
+                              "CD24", "MYL4", "ANXA8", "ACTC1",
+                              "CSF1", "CXCL14", "IGFBP3", "FN1"),
+             gene_order = c("HAND1", "POSTN",
+                              "CD24", "MYL4", "ANXA8", "ACTC1",
+                              "CSF1", "CXCL14", "IGFBP3", "FN1"),
+             compare_by = list(c("0", "1")),
+             color_use = c("red", "blue"),
+             n.row = 3
+             )
+
+ident
+DotPlot_scCustom(exm,
+                 features = c("AXL", "TYRO3"),
+                 scale = F, flip_axes = T,
+                 colors_use = dot_colors1)
+
+
+library(CytoTRACE)
+data_use <- exm@assays$RNA@counts %>% as.matrix()
+
+results <- CytoTRACE(data_use)
+exm$CytoTRACE <- results$CytoTRACE
+
+VlnPlot_scCustom(exm,
+                 features = "CytoTRACE")
+
+
+pl_geneScore(data_input = exm,
+             group_by = "seurat_clusters",
+             score_names = "CytoTRACE",
+             score_order = "CytoTRACE",
+             compare_by = list(c("0", "1")),
+             #split_by = "general_gt_abs",
+             #plot_type = "noS",
+             color_use = c("#139992", "#ff891c"),
+             n.row = 2 ) -> tmp_p
+
+
+```
+
+
+## Heatmap
+```{r}
+AverageExpression(ysdata,
+                  features = c("SPP1", "GAS6", "TGFB1", "CD48", "ITGB2", 
+                                "CD44", "AXL", "TYRO3", "TGFBR1", "TGFBR2", 
+                              "ITGA5", "ITGA8", "ITGA9",
+                               "ITGB1", "ICAM2", 
+                              "CD244"),
+                  group.by = "Cluster6",
+                  assays = "RNA",
+                  slot = "data")$RNA -> phm_data
+
+
+bk <- c(seq(-1.5,-0.1,by=0.02),seq(0,1.5,by=0.02))
+
+
+phm_data[c("SPP1", "GAS6", "CD48", "ITGB2", 
+                                "CD44", "AXL", "TYRO3",
+                              "ITGA5", "ITGA8", "ITGA9",
+                               "ITGB1", "ICAM2", 
+                              "CD244"),]
+pheatmap::pheatmap(phm_data[c("SPP1", "GAS6", "CD48", "ITGB2", 
+                                "CD44", "AXL", "TYRO3",
+                              "ITGA5", "ITGA8", "ITGA9",
+                               "ITGB1", "ICAM2", 
+                              "CD244"),
+                            c("Mac", "ExM", "EC",  "HPC")] %>% t  ,
+                         color = 
+                     c(colorRampPalette(colors = c("#3685ac","white"))(length(bk)/2),
+                       colorRampPalette(colors = c("white","#eb1f16"))(length(bk)/2)),
+                   breaks = bk,
+                   border_color = "white",
+                   scale = "column", clustering_method = "ward.D2",
+                   cluster_rows = F, cluster_cols = F)
+```
+
+## CD206 macrophage
+```{r}
+
+
+### expression level of signature of AGM macrophages
+VlnPlot_scCustom(ysdata[,ysdata$Cluster %in% c("HPC", "MyP", "Mac")],
+                 group.by = "Cluster",
+                 features = c("CSF1R", "CX3CR1", "MRC1"),
+                 colors_use = c("#3F84AA", "#65a83e", "#139992"),
+                 pt.size = 0
+                 )
+
+
+### Hallmark genesets expression level
+
+library(GSVA)
+
+msigdbr::msigdbr_show_species()
+genesets <- msigdbr::msigdbr(species = "Homo sapiens", category = "H") 
+genesets <- subset(genesets, select = c("gs_name","gene_symbol")) %>% as.data.frame()
+genesets.h  <- split(genesets$gene_symbol, genesets$gs_name )
+
+Idents(human_hep) <- human_hep$Cluster
+expr <- AverageExpression(human_hep, assays = "RNA", slot = "data")[[1]]
+expr <- expr[rowSums(expr) > 0, ] %>% as.matrix()
+
+gsva.res.h <- gsva(expr, genesets.h, method = "ssgsea")
+
+
+bk <- c(seq(-2, -0.1,by= 0.01),seq(0,2,by=0.01))
+
+gsva.res.h %>% rownames() %>% lapply(FUN = function(x){
+  strsplit(x, "HALLMARK_")[[1]][2]
+}) %>% unlist -> tmp_row
+rownames(gsva.res.h) <- tmp_row
+
+gsva.res.h %>% colnames()
+pheatmap::pheatmap(gsva.res.h[,c("Emerging Mesoderm", "Advanced Mesoderm",
+                                 "ExM", "EC", "HPC", "MkP", "Ery",
+                                 "MyP",  "Mac")],
+                   show_rownames = T,
+                   cluster_cols = F,
+                   color =c(colorRampPalette(colors = c("#098685","white"))(length(bk)/2),
+                   colorRampPalette(colors = c("white","#E59612"))(length(bk)/2)),
+                   scale = "row",
+                   breaks = bk,
+                   angle_col = "45",
+                   clustering_method = "ward.D2",
+                   border_color = NA)
+
+
+saveRDS(cca.major, file = "./Rdata/merged_species.rds")
+
+```
+
